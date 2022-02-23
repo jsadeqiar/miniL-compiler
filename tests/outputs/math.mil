@@ -1,0 +1,37 @@
+func main
+. a
+. b
+. c
+= a, 100
+= b, 50
+. _temp6
+= _temp6, b
+. _temp7
++ _temp7, a, _temp6
+= c, _temp7
+.> c
+. _temp10
+= _temp10, b
+. _temp11
+- _temp11, a, _temp10
+= c, _temp11
+.> c
+. _temp12
+= _temp12, b
+. _temp13
+* _temp13, a, _temp12
+= c, _temp13
+.> c
+. _temp15
+= _temp15, b
+. _temp16
+/ _temp16, a, _temp15
+= c, _temp16
+.> c
+. _temp18
+= _temp18, b
+. _temp19
+% _temp19, a, _temp18
+= c, _temp19
+.> c
+endfunc

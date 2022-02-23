@@ -15,6 +15,8 @@ struct CodeNode
 {
   std::string code;
   std::string name;
+
+  bool array = false;
 };
 
 extern int row;
@@ -26,10 +28,12 @@ bool mulFlag = false;
 bool divFlag = false;
 bool modFlag = false;
 bool isArray = false;
+bool mainCheck = false;
 
 static int i = 1;
 std::string dec_string = "";
 std::string stmt_string = "";
+std::string func_string = "";
 
 
 
@@ -105,16 +109,25 @@ std::string stmt_string = "";
 /* write your rules here */
 PROGRAM:        FUNCTIONS_L
                 {
-                  std::cout << $1->code << std::endl;
+                  if(!mainCheck)
+                  {
+                    std::string error;
+                    error += std::string("Function 'main' not defined!");
+                    yyerror(error.c_str());
+                  }
+                  else
+                    std::cout << $1->code;
                 }
                 ;
 
 FUNCTIONS_L:    FUNCTIONS FUNCTIONS_L
                 {
+                  func_string.insert(0, $1->code);
                   CodeNode *node = new CodeNode;
-                  node->name = $1->name;
+                  node->name = "";
+                  node->code = func_string;
+
                   
-                  node->code += $1->code;
                   $$ = node;
                 }
                 |  /* epsilon */
@@ -127,15 +140,17 @@ FUNCTIONS:      FUNCTION IDENTIFIER SEMICOLON BEGIN_PARAMS DECLARATION_L END_PAR
                 {
                   CodeNode *node = new CodeNode;
                   node->name = $2;
+                  if($2 == std::string("main"))
+                    mainCheck = true;
                   node->code = std::string("func ") + $2 + std::string("\n");
-                  node->code += $5->code + $8->code + $11->code + std::string("endfunc ") + std::string("\n");
+                  node->code += $5->code + $8->code + $11->code + std::string("endfunc");
                   $$ = node;
                 }
                 ;
 
 DECLARATION_L:  DECLARATION SEMICOLON DECLARATION_L
                 {
-                  dec_string.insert(0, $1->code);
+                  dec_string.insert(0, $1->code + std::string("\n"));
                   CodeNode *node = new CodeNode;
                   node->name = "";
                   node->code = dec_string;
@@ -143,6 +158,7 @@ DECLARATION_L:  DECLARATION SEMICOLON DECLARATION_L
                 }
                 | /* epsilon */
                   {
+                    dec_string = "";
                     $$ = new CodeNode;
                   }
                 ;
@@ -151,21 +167,21 @@ DECLARATION:    IDENTIFIER COLON INTEGER
                 {
                   CodeNode *node = new CodeNode;
                   node->name = "";
-                  node->code = std::string(". ") + $1 + std::string("\n");
+                  node->code = std::string(". ") + $1;
                   $$ = node;
                 }
                 | IDENTIFIER COLON ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER
                   {
                     CodeNode *node = new CodeNode;
                     node->name = "";
-                    node->code = std::string(".[] ") + $1 + std::string(", ") + std::to_string($5) + std::string("\n");
+                    node->code = std::string(".[] ") + $1 + std::string(", ") + std::to_string($5);
                     $$ = node;
                   }
                 ;
 
 STATEMENT_L:    STATEMENT SEMICOLON STATEMENT_L
                 {
-                  stmt_string.insert(0, $1->code);
+                  stmt_string.insert(0, $1->code +  std::string("\n"));
                   CodeNode *node = new CodeNode;
                   node->name = "";
                   node->code = stmt_string;
@@ -174,27 +190,31 @@ STATEMENT_L:    STATEMENT SEMICOLON STATEMENT_L
                 }
                 | STATEMENT SEMICOLON
                   {
-                    $$ = $1;
+                    stmt_string.insert(0, $1->code + std::string("\n"));
+                    CodeNode *node = new CodeNode;
+                    node->name = "";
+                    node->code = stmt_string;
+                    $$ = node;
                   }
                 ;
 
 STATEMENT:      VAR ASSIGN EXPRESSION
                 {
-                  if(isArray)
+                  if($1->array)
                   {
-                    isArray = false;
+                    
                     CodeNode *node = new CodeNode;
                     std::string var_name = $1->name;
                     node->code = $3->code;
 
-                    node->code += std::string("[]= ") + var_name + std::string(", ") + $3->name + std::string("\n");
+                    node->code += std::string("[]= ") + var_name + std::string(", ") + $3->name;
                     $$ = node;
                   }
                   else{
                   CodeNode *node = new CodeNode;
                   std::string var_name = $1->name;
                   node->code = $3->code;
-                  node->code += std::string("= ") + var_name + std::string(", ") + $3->name + std::string("\n");
+                  node->code += std::string("= ") + var_name + std::string(", ") + $3->name;
                   $$ = node;
                   }
                 }
@@ -220,22 +240,22 @@ STATEMENT:      VAR ASSIGN EXPRESSION
                   }
                 | WRITE VAR
                   {
-                   if(isArray)
+                   if($2->array == true)
                     {
-                    isArray = false;
+                    
                     std::string temp = makeTemp();
                     CodeNode *node = new CodeNode;
                     std::string var_name = $2->name;
                     node->code = $2->code;
                     node->code += std::string(". ") + temp + std::string("\n");
                     node->code += std::string("=[] ") + temp + std::string(", ") + var_name + std::string("\n");
-                    node->code += std::string(".> ") + temp + std::string("\n");
+                    node->code += std::string(".> ") + temp;
                     $$ = node;
                     } 
                     else{
                     CodeNode *node = new CodeNode;
                     node->code = $2->code;
-                    node->code += std::string(".> ") + $2->name + std::string("\n");
+                    node->code += std::string(".> ") + $2->name;
                     $$ = node;
                     }
                   }
@@ -252,7 +272,7 @@ STATEMENT:      VAR ASSIGN EXPRESSION
                     CodeNode *node = new CodeNode;
                     node->name = $2->name;
                     node->code = $2->code;
-                    node->code += std::string("ret ") + $2->name + std::string("\n");
+                    node->code += std::string("ret ") + $2->name;
                     $$ = node;
                   }
                 ; 
@@ -305,18 +325,49 @@ EXPRESSION:     MULT_EXPR ADDSUBEXP
                   CodeNode *node = new CodeNode;
                   std::string temp = makeTemp();
                   node->name = temp;
-                  node->code = $1->code + $2->code + std::string("\n");
+                  node->code = $1->code + $2->code;
                   if(addFlag)
                   {
-                    addFlag = false;
-                    node->code += std::string(". ") + temp + std::string("\n");
-                    node->code += std::string("+ ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name +std::string("\n");
+                    if($1->array == true || $2->array == true)
+                    {
+                      std::string temp2 = makeTemp();
+                      node->code += std::string(". ") + temp2 + std::string("\n");
+                      node->code += std::string("=[] ") + temp2 + std::string(", ") + $1->name + std::string("\n");
+                      
+                      node->name = temp;
+                      node->code += std::string(". ") + temp + std::string("\n");
+                      node->code += std::string("+ ") + temp + std::string(", ") + temp2 + std::string(", ") + $2->name + std::string("\n");
+                      addFlag = false;
+                      node->array = true;
+                      
+                    }
+                    else
+                    {
+                      addFlag = false;
+                      node->code += std::string(". ") + temp + std::string("\n");
+                      node->code += std::string("+ ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name + std::string("\n");
+                    }
                   }
                   else if(subFlag)
                   {
+                    if($1->array == true || $2->array == true)
+                    {
+                      std::string temp2 = makeTemp();
+                      node->code += std::string(". ") + temp2 + std::string("\n");
+                      node->code += std::string("=[] ") + temp2 + std::string(", ") + $1->name + std::string("\n");
+                      
+                      node->name = temp;
+                      node->code += std::string(". ") + temp + std::string("\n");
+                      node->code += std::string("+ ") + temp + std::string(", ") + temp2 + std::string(", ") + $2->name + std::string("\n");
+                      subFlag = false;
+                      node->array = true;
+                    }
+                    else
+                    {
                     subFlag = false;
                     node->code += std::string(". ") + temp + std::string("\n");
-                    node->code += std::string("- ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name +std::string("\n");
+                    node->code += std::string("- ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name + std::string("\n");
+                    }
                   }
                   else
                   {
@@ -360,31 +411,77 @@ MULT_EXPR:      TERM MULTDIVEXP
                   CodeNode *node = new CodeNode;
                   std::string temp = makeTemp();
                   node->name = temp;
-                  node->code = $1->code + $2->code + std::string("\n");
+                  node->code = $1->code + $2->code;
                   if(mulFlag)
                   {
-                    mulFlag = false;
-                    node->code += std::string(". ") + temp + std::string("\n");
-                    node->code += std::string("* ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name +std::string("\n");
+                    if($1->array == true || $2->array == true)
+                    {
+                      std::string temp2 = makeTemp();
+                      node->code += std::string(". ") + temp2 + std::string("\n");
+                      node->code += std::string("=[] ") + temp2 + std::string(", ") + $1->name + std::string("\n");
+                      
+                      node->code += std::string(". ") + temp + std::string("\n");
+                      node->code += std::string("* ") + temp + std::string(", ") + temp2 + std::string(", ") + $2->name + std::string("\n");
+                      mulFlag = false;
+                      node->array = true;
+                    }
+                    else
+                    {
+                      mulFlag = false;
+                      node->code += std::string(". ") + temp + std::string("\n");
+                      node->code += std::string("* ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name + std::string("\n");
+                    }
                   }
                   else if(divFlag)
                   {
+                    if($1->array == true || $2->array == true)
+                    {
+                      std::string temp2 = makeTemp();
+                      node->code += std::string(". ") + temp2 + std::string("\n");
+                      node->code += std::string("=[] ") + temp2 + std::string(", ") + $1->name + std::string("\n");
+                      
+                      node->code += std::string(". ") + temp + std::string("\n");
+                      node->code += std::string("/ ") + temp + std::string(", ") + temp2 + std::string(", ") + $2->name + std::string("\n");
+                      divFlag = false;
+                      node->array = true;
+                    }
+                    else
+                    {
                     divFlag = false;
                     node->code += std::string(". ") + temp + std::string("\n");
-                    node->code += std::string("/ ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name +std::string("\n");
+                    node->code += std::string("/ ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name + std::string("\n");
+                    }
                   }
                   else if(modFlag)
                   {
+                    if($1->array == true || $2->array == true)
+                    {
+                      std::string temp2 = makeTemp();
+                      node->code += std::string(". ") + temp2 + std::string("\n");
+                      node->code += std::string("=[] ") + temp2 + std::string(", ") + $1->name + std::string("\n");
+                      
+                      node->code += std::string(". ") + temp + std::string("\n");
+                      node->code += std::string("/ ") + temp + std::string(", ") + temp2 + std::string(", ") + $2->name + std::string("\n");
+                      modFlag = false;
+                      node->array = true;
+                    }
+                    else
+                    {
                     modFlag = false;
                     node->code += std::string(". ") + temp + std::string("\n");
-                    node->code += std::string("% ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name +std::string("\n");
+                    node->code += std::string("% ") + temp + std::string(", ") + $1->name + std::string(", ") + $2->name + std::string("\n");
+                    }
                   }
                   else
                   {
                     node->name = $1->name;
+                    if($1->array)
+                      node->array = true;
                     $$ = node;
                   }
-
+                  if($1->array)
+                      node->array = true;
+                  $$ = node;
                 }
                 ;
 
@@ -432,6 +529,8 @@ TERM:           VAR
                   CodeNode *node = new CodeNode;
                   node->code = $1->code;
                   node->name = $1->name;
+                  if($1->array)
+                    node->array = true;
                   //std::string error;
                   //if(!find(node->name, Integer, error))
                     //yyerror(error.c_str());
@@ -449,7 +548,7 @@ TERM:           VAR
                   {
                     CodeNode *node = new CodeNode;
                     std::string temp = makeTemp();
-                    node->name = temp;
+                    node->name = $2->name;
                     node->code = $2->code;
                     $$ = node;
                     //maybe
@@ -465,12 +564,12 @@ TERM:           VAR
                   }
                 ;
 
-EXPRESSION_L:   EXPRESSION_L EXPRESSION COMMA 
+EXPRESSION_L:   EXPRESSION COMMA EXPRESSION_L 
                 {
                   CodeNode *node = new CodeNode;
-                  node->name = $2->name;
-                  node->code = $2->code;
-                  node->code += std::string("param ") + $2->name + std::string("\n");
+                  node->name = $1->name;
+                  node->code = $1->code;
+                  node->code += std::string("param ") + $1->name + std::string("\n");
                   $$ = node;
                 }
                 | EXPRESSION
@@ -502,7 +601,7 @@ VAR:            IDENTIFIER
                     CodeNode *node = new CodeNode;
                     node->code = $3->code;
                     node->name = std::string($1) + std::string(", ") + $3->name;
-                    isArray = true;
+                    node->array = true;
                     $$ = node;
                   }
                 ;

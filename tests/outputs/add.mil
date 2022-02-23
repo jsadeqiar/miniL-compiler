@@ -1,0 +1,13 @@
+func main
+. a
+. b
+. c
+= a, 100
+= b, 50
+. _temp6
+= _temp6, b
+. _temp7
++ _temp7, a, _temp6
+= c, _temp7
+.> c
+endfunc

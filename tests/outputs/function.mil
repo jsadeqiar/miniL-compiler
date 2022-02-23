@@ -1,0 +1,47 @@
+func add
+. a
+. b
+. _temp2
+= _temp2, b
+. _temp3
++ _temp3, a, _temp2
+ret _temp3
+endfuncfunc mult
+. a
+. b
+. _temp4
+= _temp4, b
+. _temp5
+* _temp5, a, _temp4
+ret _temp5
+. _temp2
+= _temp2, b
+. _temp3
++ _temp3, a, _temp2
+ret _temp3
+endfuncfunc main
+. a
+. b
+. c
+. d
+= a, 100
+= b, 50
+param a
+call add, _temp15
+= c, _temp15
+.> c
+param c
+call mult, _temp24
+= d, _temp24
+.> d
+. _temp4
+= _temp4, b
+. _temp5
+* _temp5, a, _temp4
+ret _temp5
+. _temp2
+= _temp2, b
+. _temp3
++ _temp3, a, _temp2
+ret _temp3
+endfunc
