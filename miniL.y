@@ -3,10 +3,12 @@
 #include <stdio.h>
 #include <iostream>
 #include <string>
+#include <string.h>
 
 int yylex(void);
 void yyerror(const char* msg);
 std::string makeTemp();
+std::string makeLabel();
 //bool find(std::string &value);
 #define YY_NO_UNPUT
 
@@ -17,6 +19,7 @@ struct CodeNode
   std::string name;
 
   bool array = false;
+  bool breakCheck = false;
 };
 
 extern int row;
@@ -29,11 +32,13 @@ bool divFlag = false;
 bool modFlag = false;
 bool isArray = false;
 bool mainCheck = false;
+bool bC = false;
 
 static int i = 1;
 std::string dec_string = "";
 std::string stmt_string = "";
 std::string func_string = "";
+std::string endLoop;
 
 
 
@@ -185,6 +190,11 @@ STATEMENT_L:    STATEMENT SEMICOLON STATEMENT_L
                   CodeNode *node = new CodeNode;
                   node->name = "";
                   node->code = stmt_string;
+                  if($1->breakCheck == true || $3->breakCheck == true)
+                    {
+                      node->breakCheck = true;
+                      //std::cout << $1->code << std::string(" ") + std::to_string(node->breakCheck) << std::endl;
+                    }                    
                   $$ = node;
                   
                 }
@@ -193,8 +203,17 @@ STATEMENT_L:    STATEMENT SEMICOLON STATEMENT_L
                     stmt_string.insert(0, $1->code + std::string("\n"));
                     CodeNode *node = new CodeNode;
                     node->name = "";
-                    node->code = stmt_string;
+                    node->code += std::string($1->code) + std::string("\n");
+
+                    if($1->breakCheck == true)
+                    {
+                      node->breakCheck = true;
+                      //std::cout << $1->code << std::string(" ") + std::to_string(node->breakCheck) << std::endl;
+                    }                    
                     $$ = node;
+                    
+                    //stmt_string.clear(); IDK
+                    
                   }
                 ;
 
@@ -202,7 +221,6 @@ STATEMENT:      VAR ASSIGN EXPRESSION
                 {
                   if($1->array)
                   {
-                    
                     CodeNode *node = new CodeNode;
                     std::string var_name = $1->name;
                     node->code = $3->code;
@@ -220,15 +238,64 @@ STATEMENT:      VAR ASSIGN EXPRESSION
                 }
                 | IF BOOL_EXP THEN STATEMENT_L ENDIF
                   {
+                    CodeNode *node = new CodeNode;
+                    std::string trueL = makeLabel();
+                    std::string endif = makeLabel();
 
+                    node->code += $2->code + std::string("\n");
+                    node->code += std::string("?:= ") + trueL + std::string(", ") + $2->name + std::string("\n");
+                    node->code += std::string(":= ") + endif + std::string("\n");
+                    node->code += std::string(": ") + trueL + std::string("\n");
+                    node->code += $4->code;
+                    stmt_string = ""; // erase stmt_string buffer once appended to this node to avoid duplicate.
+                    node->code += std::string(": ") + endif ;
+                    $$ = node;
                   }
                 | IF BOOL_EXP THEN STATEMENT_L ELSE STATEMENT_L ENDIF
                   {
+                    CodeNode *node = new CodeNode;
+                    //std::string temp = makeTemp();
+                    std::string trueL = makeLabel();
+                    std::string falseL = makeLabel();
+                    std::string endif = makeLabel();
 
+                    node->code += $2->code + std::string("\n");
+                    node->code += std::string("?:= ") + trueL + std::string(", ") + $2->name + std::string("\n");
+                    node->code += std::string(":= ") + falseL + std::string("\n");
+                    node->code += std::string(": ") + trueL + std::string("\n");
+                    node->code += $4->code;
+                    node->code += std::string(":= ") + endif + std::string("\n");
+                    node->code += std::string(": ") + falseL + std::string("\n");
+                    node->code += $6->code;
+                    node->code += std::string(": ") + endif;
+                    $$ = node;
                   }
                 | WHILE BOOL_EXP BEGINLOOP STATEMENT_L ENDLOOP
                   {
+                    CodeNode *node = new CodeNode;
+                    std::string startL = makeLabel();
+                    std::string endL;
+                    
+                    if(bC == false)
+                    {
+                      endL = makeLabel();
+                    }
+                    else{
+                      endL = endLoop;
+                      bC = false;
+                    }
+                    std::string innerL = makeLabel();
 
+                    node->code += std::string(": ") + startL + std::string("\n");
+                    node->code += $2->code + std::string("\n");
+                    node->code += std::string("?:= ") + innerL + std::string(", ") + $2->name + std::string("\n");
+                    node->code += std::string(":= ") + endL + std::string("\n"); //if bool_exp name is false, go down to this label and exit loop.
+                    node->code += std::string(": ") + innerL + std::string("\n");
+                    node->code += $4->code;
+                    stmt_string = ""; // erase stmt_string buffer once appended to this node to avoid duplicate.
+                    node->code += std::string(":= ") + startL + std::string("\n");
+                    node->code += std::string(": ") + endL;
+                    $$ = node;
                   }
                 | DO BEGINLOOP STATEMENT_L ENDLOOP WHILE BOOL_EXP
                   {
@@ -242,7 +309,6 @@ STATEMENT:      VAR ASSIGN EXPRESSION
                   {
                    if($2->array == true)
                     {
-                    
                     std::string temp = makeTemp();
                     CodeNode *node = new CodeNode;
                     std::string var_name = $2->name;
@@ -265,7 +331,13 @@ STATEMENT:      VAR ASSIGN EXPRESSION
                   }
                 | BREAK
                   {
-
+                    CodeNode *node = new CodeNode;
+                    std::string tempL = makeLabel();
+                    endLoop = tempL;
+                    node->code += std::string(":= ") + tempL;
+                    node->breakCheck = true;
+                    bC = true;
+                    $$ = node;
                   }
                 | RETURN EXPRESSION
                   {
@@ -280,7 +352,12 @@ STATEMENT:      VAR ASSIGN EXPRESSION
 
 BOOL_EXP:       NOT_L EXPRESSION COMP EXPRESSION
                 {
-
+                  std::string temp = makeTemp();
+                  CodeNode *node = new CodeNode;
+                  node->code += std::string(". ") + temp + std::string("\n");
+                  node->code += $3->name + std::string(" ") + temp + std::string(", ") + $2->name + std::string(", ") + $4->name;
+                  node->name = temp;
+                  $$ = node;
                 }
                 ;
 
@@ -296,27 +373,45 @@ NOT_L:          NOT NOT_L
 
 COMP:           EQ
                 {
-                  
+                  CodeNode *node = new CodeNode;
+                  node->code = "";
+                  node->name = "==";
+                  $$ = node;
                 }
                 | NEQ
                   {
-
+                    CodeNode *node = new CodeNode;
+                    node->code = "";
+                    node->name = "!=";
+                    $$ = node;
                   }
                 | LT
                   {
-
+                    CodeNode *node = new CodeNode;
+                    node->code = "";
+                    node->name = "<";
+                    $$ = node;
                   }
                 | GT
                   {
-
+                    CodeNode *node = new CodeNode;
+                    node->code = "";
+                    node->name = ">";
+                    $$ = node;
                   }
                 | LTE
                   {
-
+                    CodeNode *node = new CodeNode;
+                    node->code = "";
+                    node->name = "<=";
+                    $$ = node;
                   }
                 | GTE
                   {
-
+                    CodeNode *node = new CodeNode;
+                    node->code = "";
+                    node->name = ">=";
+                    $$ = node;
                   }
                 ;
 
@@ -613,6 +708,12 @@ std::string makeTemp()
 {
   static int count = 0;
   return "_temp" + std::to_string(count++);
+}
+
+std::string makeLabel()
+{
+  static int count = 0;
+  return "label_" + std::to_string(count++);
 }
 
 

@@ -1,4 +1,4 @@
-## This is a simple loop with a break statement
+## This is a simple loop that counts from 1 to 10
 
 function main;
 beginparams
@@ -11,13 +11,9 @@ endlocals
 beginbody
 
   i := 0;
-  while i <= 10 beginloop
-    write i;
-    if i > 2 then
-      break;
-    endif;
-
+  while i < 10 beginloop
     i := i + 1;
+    write i;
   endloop;
 
 endbody
