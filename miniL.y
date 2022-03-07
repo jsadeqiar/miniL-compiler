@@ -299,7 +299,30 @@ STATEMENT:      VAR ASSIGN EXPRESSION
                   }
                 | DO BEGINLOOP STATEMENT_L ENDLOOP WHILE BOOL_EXP
                   {
+                    CodeNode *node = new CodeNode;
+                    std::string startL = makeLabel();
+                    std::string endL;
+                    
+                    if(bC == false)
+                    {
+                      endL = makeLabel();
+                    }
+                    else{
+                      endL = endLoop;
+                      bC = false;
+                    }
+                    std::string innerL = makeLabel();
 
+                    node->code += std::string(": ") + startL + std::string("\n");
+                    node->code += $6->code + std::string("\n");
+                    node->code += std::string("?:= ") + innerL + std::string(", ") + $6->name + std::string("\n");
+                    node->code += std::string(":= ") + endL + std::string("\n"); //if bool_exp name is false, go down to this label and exit loop.
+                    node->code += std::string(": ") + innerL + std::string("\n");
+                    node->code += $3->code;
+                    stmt_string = ""; // erase stmt_string buffer once appended to this node to avoid duplicate.
+                    node->code += std::string(":= ") + startL + std::string("\n");
+                    node->code += std::string(": ") + endL;
+                    $$ = node;
                   }
                 | READ VAR
                   {
@@ -327,7 +350,13 @@ STATEMENT:      VAR ASSIGN EXPRESSION
                   }
                 | CONTINUE
                   {
-
+                    CodeNode *node = new CodeNode;
+                    std::string tempL = makeLabel();
+                    endLoop = tempL;
+                    node->code += std::string(":= ") + tempL;
+                    node->breakCheck = true;
+                    bC = true;
+                    $$ = node;
                   }
                 | BREAK
                   {
